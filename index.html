@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        * {
+            --bg-color:#ddd;
+            --fg-color:#222;
+            background-color: var(--bg-color);
+            color:var(--fg-color);
+            padding: 0;
+            margin: 0;
+        }
+
+        body{
+            background-image: url('./img/background.jpg');
+            background-repeat: no-repeat; 
+            background-position: center;
+            background-size: cover; 
+        }
+
+        .board_container{
+            position: relative;
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            border-radius: 5px;
+            background-color: #666;
+            width: 650px;
+            height: 650px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .board_row{
+            display: flex;
+            justify-content: center;
+            width: 650px;
+            height: 50px;
+            background-color: transparent;
+        }
+
+        .board_cell{
+            border-radius: 5px;
+            background: radial-gradient(circle, #222, #666);
+            width: 50px;
+            height: 50px;
+        }
+
+        .board_thing{
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: transparent;
+            background-repeat: no-repeat; 
+            background-position: center;
+            background-size: 70%; 
+        }
+    </style>
+</head>
+<body>
+    <div class="board_container"></div>
+    <script>
+        const ele_board_container=document.querySelector('.board_container');
+        const arr_ele_board_row=[];
+        const arr_ele_board_cell=[];
+        const rows=13;
+        const cols=13;
+
+        for(let row=0;row<rows;row++){
+            const ele_row=document.createElement('div');
+            ele_row.classList.add('board_row');
+            arr_ele_board_row[row]=ele_row;
+            arr_ele_board_cell[row]=[];
+            for(let col=0;col<cols;col++){
+                const ele_cell=document.createElement('div');
+                ele_cell.classList.add('board_cell');
+                ele_row.append(ele_cell);
+                arr_ele_board_cell[row][col]=ele_cell;
+            }
+            ele_board_container.append(ele_row);
+        }
+
+        const board_contents=[];
+        const board_things=[];
+        for(let row=0;row<rows;row++){
+            const ct_row=[];
+            const th_row=[];
+            for(let col=0;col<cols;col++){
+                ct_row.push(0);
+                th_row.push(undefined);
+            }
+            board_contents.push(ct_row);
+            board_things.push(th_row);
+        }
+
+        class Connections{
+            
+        }
+
+        const movement_acc=5e-4; // 50px per 10ms^2
+
+        function get_next_destination(row, col){
+            return undefined;
+        }
+
+        function acquire_thing(row, col){
+            return undefined;
+        }
+
+        function get_bg_image_url(cata){
+            switch(cata){
+                case 1:
+                    return 'url(./img/IcApple.png)';
+                case 2:
+                    return 'url(./img/IcBanana.png)';
+                case 3:
+                    return 'url(./img/IcBlueBerry.png)';
+                case 4:
+                    return 'url(./img/IcGrape.png)';
+                case 5:
+                    return 'url(./img/IcKiwiFruit.png)';
+                default:
+                    throw new Error(`unknown catagory: ${cata}`);
+            }
+        }
+
+        class Thing{
+            constructor(cata, row, col, initrow, initcol){
+                this.ele=document.createElement('div');
+                this.ele.classList.add('board_thing');
+                this.ele.style.backgroundImage=get_bg_image_url(cata);
+                ele_board_container.append(this.ele);
+                this.cata=+cata;
+                this.row=row;
+                this.col=col;
+                this.movements=[];
+                this.velocity=0.0;
+                this.SE_horizontal=false;
+                this.SE_vertical=false;
+                this.calculate_movements(initrow, initcol, row, col);
+                board_contents[this.row][this.col]=this.cata;
+                this.callback_move(this);
+            }
+
+            goto(newrow, newcol){
+                this.calculate_movements(this.row, this.col, newrow, newcol);
+                board_contents[this.row][this.col]=0;
+                board_things[this.row][this.col]=undefined;
+                acquire_thing(this.row, this.col);
+                this.row=newrow;
+                this.col=newcol;
+                console.assert(board_things[this.row][this.col]===undefined);
+                board_things[this.row][this.col]=this.cata;
+                this.callback_move(this);
+            }
+
+            calculate_movements(fromrow, fromcol, torow, tocol){
+                let direction=[torow-fromrow, tocol-fromcol];
+                let distance=Math.sqrt(direction[0]**2+direction[1]**2);
+                direction[0]/=distance;direction[1]/=distance;
+                let x=0;
+                while (x<distance){
+                    this.movements.push([fromrow+direction[0]*x, fromcol+direction[1]*x])
+                    this.velocity+=movement_acc;
+                    x+=this.velocity;
+                }
+            }
+
+            callback_move(self){
+                if(self.movements.length===0){
+                    self.callback_arrival(self);
+                    return;
+                }else{
+                    setTimeout(()=>{self.callback_move(self)}, 10);
+                }
+                let [col, row]=self.movements.shift();
+                let left=Math.round(col*50)+'px';
+                let top=Math.round(row*50)+'px';
+                self.ele.style.left=left;
+                self.ele.style.top=top;
+            }
+
+            callback_arrival(){
+                let next_dest=get_next_destination(this.row, this.col);
+                if(next_dest===undefined){
+                    this.velocity=0.0;
+                    console.assert(board_things[this.row][this.col]===undefined||board_things[this.row][this.col]===this);
+                    board_things[this.row][this.col]=this;
+                    board_contents[this.row][this.col]=this.cata;
+                }else{
+                    let [row,col]=next_dest;
+                    this.goto(row, col);
+                }
+            }
+
+            setSEHorizontal(){
+
+            }
+
+            setSEVertical(){
+
+            }
+        }
+
+        let a=new Thing(1, 2, 2, 1, 2);
+    </script>
+</body>
+</html>

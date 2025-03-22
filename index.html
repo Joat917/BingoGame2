@@ -58,6 +58,57 @@
             background-position: center;
             background-size: 70%; 
         }
+
+        .cata1{
+            background-image: url('./img/IcApple.png');
+        }
+
+        .cata2{
+            background-image: url('./img/IcBanana.png');
+        }
+
+        .cata3{
+            background-image: url('./img/IcBlueBerry.png');
+        }
+
+        .cata4{
+            background-image: url('./img/IcGrape.png');
+        }
+
+        .cata5{
+            background-image: url('./img/IcKiwiFruit.png');
+        }
+
+        .cata-1{
+            background-image: url('./img/IcRainbow.png');
+        }
+
+        .SE_horizontal::before{
+            content: '';
+            display: inline-block;
+            background-image: url('./img/ArrowLR.png');
+            background-repeat: no-repeat; 
+            background-position: center;
+            background-size: 90%; 
+            width: 50px;
+            height: 50px;
+        }
+
+        .SE_vertical::before{
+            content: '';
+            display: inline-block;
+            background-image: url('./img/ArrowUD.png');
+            background-repeat: no-repeat; 
+            background-position: center;
+            background-size: 90%; 
+            width: 50px;
+            height: 50px;
+        }
+
+        .SE_horizontal.SE_vertical::before{
+            content: '';
+            background-image: url('./img/ArrowAll.png');
+        }
     </style>
 </head>
 <body>
@@ -83,21 +134,46 @@
             ele_board_container.append(ele_row);
         }
 
+        const board_enabled=[];
         const board_contents=[];
         const board_things=[];
         for(let row=0;row<rows;row++){
             const ct_row=[];
             const th_row=[];
+            const be_row=[];
             for(let col=0;col<cols;col++){
                 ct_row.push(0);
                 th_row.push(undefined);
+                be_row.push(true);
             }
             board_contents.push(ct_row);
             board_things.push(th_row);
+            board_enabled.push(be_row);
         }
 
+        const connections=undefined;
+        const tasksystem=undefined;
+
         class Connections{
-            
+            constructor(){
+
+            }
+
+            has_generator(row, col){
+
+            }
+
+            generate(row, col){
+
+            }
+
+            last_place(row, col){
+
+            }
+
+            next_place(row, col){
+
+            }
         }
 
         const movement_acc=5e-4; // 50px per 10ms^2
@@ -110,32 +186,29 @@
             return undefined;
         }
 
-        function get_bg_image_url(cata){
-            switch(cata){
-                case 1:
-                    return 'url(./img/IcApple.png)';
-                case 2:
-                    return 'url(./img/IcBanana.png)';
-                case 3:
-                    return 'url(./img/IcBlueBerry.png)';
-                case 4:
-                    return 'url(./img/IcGrape.png)';
-                case 5:
-                    return 'url(./img/IcKiwiFruit.png)';
-                default:
-                    throw new Error(`unknown catagory: ${cata}`);
-            }
+        function run_special_effect_horizontal(row, col){
+
+        }
+
+        function run_special_effect_vertical(row, col){
+            
+        }
+
+        function run_special_effect_bingo(row, col){
+
         }
 
         class Thing{
             constructor(cata, row, col, initrow, initcol){
-                this.ele=document.createElement('div');
-                this.ele.classList.add('board_thing');
-                this.ele.style.backgroundImage=get_bg_image_url(cata);
-                ele_board_container.append(this.ele);
                 this.cata=+cata;
                 this.row=row;
                 this.col=col;
+
+                this.ele=document.createElement('div');
+                this.ele.classList.add('board_thing');
+                this.ele.classList.add(`cata${this.cata}`);
+                ele_board_container.append(this.ele);
+
                 this.movements=[];
                 this.velocity=0.0;
                 this.SE_horizontal=false;
@@ -145,15 +218,32 @@
                 this.callback_move(this);
             }
 
-            goto(newrow, newcol){
-                this.calculate_movements(this.row, this.col, newrow, newcol);
+            _leave(){
                 board_contents[this.row][this.col]=0;
                 board_things[this.row][this.col]=undefined;
-                acquire_thing(this.row, this.col);
+                if(connections!==undefined){
+                    if(connections.has_generator(this.row, this.col)){
+                        connections.generate(this.row, this.col);
+                        return;
+                    }
+                    for(let [row,col] of connections.last_place(this.row, this.col)){
+                        if(board_things[row][col]!==undefined){
+                            setTimeout(()=>board_things[row][col].goto(this.row, this.col), 0);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            goto(newrow, newcol){
+                if(board_things[newrow][newcol]!==undefined){
+                    throw new Error("Try to move to an occupied cell");
+                }
+                this.calculate_movements(this.row, this.col, newrow, newcol);
+                this._leave();
                 this.row=newrow;
                 this.col=newcol;
-                console.assert(board_things[this.row][this.col]===undefined);
-                board_things[this.row][this.col]=this.cata;
+                board_contents[this.row][this.col]=this.cata;
                 this.callback_move(this);
             }
 
@@ -170,6 +260,7 @@
             }
 
             callback_move(self){
+                if(this.ele===undefined){return;}
                 if(self.movements.length===0){
                     self.callback_arrival(self);
                     return;
@@ -184,6 +275,11 @@
             }
 
             callback_arrival(){
+                if(this.ele===undefined){return;}
+                this.movements.splice(0);
+                self.ele.style.left=Math.round(this.col*50)+'px';
+                self.ele.style.top=Math.round(this.row*50)+'px';
+
                 let next_dest=get_next_destination(this.row, this.col);
                 if(next_dest===undefined){
                     this.velocity=0.0;
@@ -196,16 +292,53 @@
                 }
             }
 
-            setSEHorizontal(){
+            callback_bingo(){
+                if(this.movements.length!==0){
+                    // this.callback_arrival();
+                    throw new Error("try to bingo moving things");
+                }
+                run_special_effect_bingo(this.row, this.col);
+                this.ele.remove();
+                this.ele=undefined;
+                this._leave();
+                if(this.SE_horizontal){
+                    run_special_effect_horizontal(this.row, this.col);
+                    for(let col=0;col<cols;col++){
+                        let thing=acquire_thing(this.row, col);
+                        if(thing!==undefined){
+                            setTimeout(()=>thing.callback_bingo(), 0);
+                        }
+                    }
+                }
+                if(this.SE_vertical){
+                    run_special_effect_vertical(this.row, this.col);
+                    for(let row=0;row<rows;row++){
+                        let thing=acquire_thing(row, this.col);
+                        if(thing!==undefined){
+                            setTimeout(()=>thing.callback_bingo(), 0);
+                        }
+                    }
+                }
+                if(tasksystem!==undefined){
+                    tasksystem.addCounter(this.cata, this.SE_horizontal, this.SE_vertical);
+                }
+                return;
+            }
 
+            setSEHorizontal(){
+                this.SE_horizontal=true;
+                this.ele.classList.add('SE_horizontal');
             }
 
             setSEVertical(){
-
+                this.SE_vertical=true;
+                this.ele.classList.add('SE_vertical');
             }
         }
 
-        let a=new Thing(1, 2, 2, 1, 2);
+        let a=new Thing(3, 2, 2, 1, 2);
+        a.setSEHorizontal();
+        a.setSEVertical();
     </script>
 </body>
 </html>

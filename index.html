@@ -1,40 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <style>
         * {
-            --bg-color:#ddd;
-            --fg-color:#222;
+            --bg-color: #ddd;
+            --fg-color: #222;
             background-color: var(--bg-color);
-            color:var(--fg-color);
+            color: var(--fg-color);
             padding: 0;
             margin: 0;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+            -webkit-user-drag: none;
         }
 
-        body{
+        body {
             background-image: url('./img/background.jpg');
-            background-repeat: no-repeat; 
+            background-repeat: no-repeat;
             background-position: center;
-            background-size: cover; 
+            background-size: cover;
         }
 
-        .board_container{
+        .board_container {
             position: relative;
             display: flex;
             justify-content: center;
             flex-direction: column;
             border-radius: 5px;
-            background-color: #666;
+            /* background-color: #666; */
+            background-color: transparent;
             width: 650px;
             height: 650px;
             margin: 0 auto;
             overflow: hidden;
         }
 
-        .board_row{
+        .board_row {
             display: flex;
             justify-content: center;
             width: 650px;
@@ -42,124 +48,164 @@
             background-color: transparent;
         }
 
-        .board_cell{
+        .board_cell {
             border-radius: 5px;
             background: radial-gradient(circle, #222, #666);
             width: 50px;
             height: 50px;
         }
 
-        .board_thing{
+        .board_cell.disabled {
+            opacity: 0;
+        }
+
+        .board_thing {
             position: absolute;
             width: 50px;
             height: 50px;
             background-color: transparent;
-            background-repeat: no-repeat; 
+            background-repeat: no-repeat;
             background-position: center;
-            background-size: 70%; 
+            background-size: 70%;
         }
 
-        .cata1{
+        .cata1 {
             background-image: url('./img/IcApple.png');
         }
 
-        .cata2{
+        .cata2 {
             background-image: url('./img/IcBanana.png');
         }
 
-        .cata3{
+        .cata3 {
             background-image: url('./img/IcBlueBerry.png');
         }
 
-        .cata4{
+        .cata4 {
             background-image: url('./img/IcGrape.png');
         }
 
-        .cata5{
+        .cata5 {
             background-image: url('./img/IcKiwiFruit.png');
         }
 
-        .cata-1{
+        .cata-1 {
             background-image: url('./img/IcRainbow.png');
         }
 
-        .SE_horizontal::before{
+        .SE_horizontal::before {
             content: '';
             display: inline-block;
             background-image: url('./img/ArrowLR.png');
-            background-repeat: no-repeat; 
+            background-repeat: no-repeat;
             background-position: center;
-            background-size: 90%; 
+            background-size: 90%;
             width: 50px;
             height: 50px;
         }
 
-        .SE_vertical::before{
+        .SE_vertical::before {
             content: '';
             display: inline-block;
             background-image: url('./img/ArrowUD.png');
-            background-repeat: no-repeat; 
+            background-repeat: no-repeat;
             background-position: center;
-            background-size: 90%; 
+            background-size: 90%;
             width: 50px;
             height: 50px;
         }
 
-        .SE_horizontal.SE_vertical::before{
+        .SE_horizontal.SE_vertical::before {
             content: '';
             background-image: url('./img/ArrowAll.png');
         }
+
+        .SE_triangle{
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent; 
+            border-right: 8px solid transparent; 
+            border-bottom: 13px solid #cc6;
+            background-color: transparent;
+            --angle: 23deg;
+            transform: rotate(var(--angle));
+            --transparency: 1;
+            opacity: var(--transparency);
+        }
+
+        .SE_MovingArrow{
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-top: 25px solid transparent; 
+            border-bottom: 25px solid transparent; 
+            border-left: 5px solid #ddd;
+            background-color: transparent;
+            --angle: 0deg;
+            transform: rotate(var(--angle));
+            --transparency: 1;
+            opacity: var(--transparency);
+        }
     </style>
 </head>
+
 <body>
     <div class="board_container"></div>
     <script>
-        const ele_board_container=document.querySelector('.board_container');
-        const arr_ele_board_row=[];
-        const arr_ele_board_cell=[];
-        const rows=13;
-        const cols=13;
+        const ele_board_container = document.querySelector('.board_container');
+        const arr_ele_board_row = [];
+        const arr_ele_board_cell = [];
+        const rows = 13;
+        const cols = 13;
 
-        for(let row=0;row<rows;row++){
-            const ele_row=document.createElement('div');
-            ele_row.classList.add('board_row');
-            arr_ele_board_row[row]=ele_row;
-            arr_ele_board_cell[row]=[];
-            for(let col=0;col<cols;col++){
-                const ele_cell=document.createElement('div');
-                ele_cell.classList.add('board_cell');
-                ele_row.append(ele_cell);
-                arr_ele_board_cell[row][col]=ele_cell;
-            }
-            ele_board_container.append(ele_row);
-        }
+        const board_enabled = [];
+        const board_contents = [];
+        const board_things = [];
+        const thing_cata_enabled = [1, 2, 3, 4, 5];
+        let generator_corr_length = 6;
+        let flowing = 0;
 
-        const board_enabled=[];
-        const board_contents=[];
-        const board_things=[];
-        const thing_cata_enabled=[1,2,3,4,5];
-        let generator_corr_length=6;
-        let flowing=0;
-
-        for(let row=0;row<rows;row++){
-            const ct_row=[];
-            const th_row=[];
-            const be_row=[];
-            for(let col=0;col<cols;col++){
+        for (let row = 0; row < rows; row++) {
+            const ct_row = [];
+            const th_row = [];
+            const be_row = [];
+            for (let col = 0; col < cols; col++) {
                 ct_row.push(0);
                 th_row.push(undefined);
-                be_row.push(true);
+                // be_row.push(true);
+                // be_row.push(Math.abs(row-6)+Math.abs(col-6)>=5);
+                be_row.push(Math.abs(row-6)>=4 || Math.abs(col-6)>=4);
             }
             board_contents.push(ct_row);
             board_things.push(th_row);
             board_enabled.push(be_row);
         }
 
-        function init_2d_array(arr, fill=undefined){
+        for (let row = 0; row < rows; row++) {
+            const ele_row = document.createElement('div');
+            ele_row.classList.add('board_row');
+            arr_ele_board_row[row] = ele_row;
+            arr_ele_board_cell[row] = [];
+            for (let col = 0; col < cols; col++) {
+                const ele_cell = document.createElement('div');
+                ele_cell.classList.add('board_cell');
+                if(!board_enabled[row][col]){
+                    ele_cell.classList.add('disabled');
+                }
+                ele_row.append(ele_cell);
+                arr_ele_board_cell[row][col] = ele_cell;
+            }
+            ele_board_container.append(ele_row);
+        }
+
+        
+
+        function init_2d_array(arr, fill = undefined) {
             arr.splice(0);
-            for(let row=0;row<rows;row++){
-                let line=[];
-                for(let col=0;col<cols;col++){
+            for (let row = 0; row < rows; row++) {
+                let line = [];
+                for (let col = 0; col < cols; col++) {
                     line.push(fill);
                 }
                 arr.push(line);
@@ -167,46 +213,46 @@
             return arr;
         }
 
-        function* all_places(){
-            for(let row=0;row<rows;row++){
-                for(let col=0;col<cols;col++){
+        function* all_places() {
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
                     yield [+row, +col];
                 }
             }
             return;
         }
 
-        function legal_pos(pos){
-            return (pos[0]>=0 && pos[0]<rows && pos[1]>=0 && pos[1]<cols && board_enabled[pos[0]][pos[1]]);
+        function legal_pos(pos) {
+            return (pos[0] >= 0 && pos[0] < rows && pos[1] >= 0 && pos[1] < cols && board_enabled[pos[0]][pos[1]]);
         }
 
-        class Connections{
-            constructor(){
-                this._last_places=init_2d_array([]);
-                this._next_places=init_2d_array([]);
-                this.generate_buffer=[];
+        class Connections {
+            constructor() {
+                this._last_places = init_2d_array([]);
+                this._next_places = init_2d_array([]);
+                this.generate_buffer = [];
                 this.init();
             }
 
-            init(){
-                for(let pos0 of all_places()){
-                    let [row, col]=pos0;                    
-                    let next_place_arr=[];
-                    let last_place_arr=[];
-                    this._next_places[row][col]=next_place_arr;
-                    this._last_places[row][col]=last_place_arr;
+            init() {
+                for (let pos0 of all_places()) {
+                    let [row, col] = pos0;
+                    let next_place_arr = [];
+                    let last_place_arr = [];
+                    this._next_places[row][col] = next_place_arr;
+                    this._last_places[row][col] = last_place_arr;
 
-                    if(!legal_pos(pos0)){
+                    if (!legal_pos(pos0)) {
                         continue;
                     }
 
-                    for(let pos2 of [[row+1, col], [row+1, col+1], [row+1, col-1]]){
-                        if(legal_pos(pos2)){
+                    for (let pos2 of [[row + 1, col], [row + 1, col + 1], [row + 1, col - 1]]) {
+                        if (legal_pos(pos2)) {
                             next_place_arr.push(pos2);
                         }
                     }
-                    for(let pos2 of [[row-1, col], [row-1, col-1], [row-1, col+1]]){
-                        if(legal_pos(pos2)){
+                    for (let pos2 of [[row - 1, col], [row - 1, col - 1], [row - 1, col + 1]]) {
+                        if (legal_pos(pos2)) {
                             last_place_arr.push(pos2);
                         }
                     }
@@ -215,45 +261,117 @@
                 this.generate_buffer.splice(0);
             }
 
-            has_generator(row, col){
-                return legal_pos([row, col]) && !(this._last_places[row][col].length>0);
+            has_generator(row, col) {
+                return legal_pos([row, col]) && !(this._last_places[row][col].length > 0);
             }
 
-            generate(row, col){
-                let cata=NaN;
-                if(this.generate_buffer.length>0){
-                    cata=this.generate_buffer.shift();
-                }else{
-                    let current_cata=thing_cata_enabled[Math.floor(Math.random()*thing_cata_enabled.length)];
-                    while(Math.random()<1/generator_corr_length){
+            generate(row, col) {
+                let cata = NaN;
+                if (this.generate_buffer.length > 0) {
+                    cata = this.generate_buffer.shift();
+                } else {
+                    let current_cata = thing_cata_enabled[Math.floor(Math.random() * thing_cata_enabled.length)];
+                    while (Math.random() > 1 / generator_corr_length) {
                         this.generate_buffer.push(current_cata);
                     }
-                    cata=current_cata;
+                    cata = current_cata;
                 }
                 console.assert(isFinite(cata));
-                return new Thing(cata, row, col, row-1, col);
+                return new Thing(cata, row, col, row - 1, col);
             }
 
-            last_place(row, col){
+            last_place(row, col) {
                 return this._last_places[row][col];
             }
 
-            next_place(row, col){
+            next_place(row, col) {
                 return this._next_places[row][col];
             }
         }
 
-        const connections=new Connections();
-        const tasksystem=undefined;
+        class SETriangle{
+            constructor(left, top){
+                this.ele=document.createElement('div');
+                this.ele.classList.add('SE_triangle');
+                ele_board_container.append(this.ele);
 
-        const movement_acc=5e-4; // 50px per 10ms^2
+                this.angle=Math.random()*360;
+                this.transparency=1.0;
+                this.left=left;
+                this.top=top;
+                this.vx=Math.random()*3;
+                this.vy=Math.random()*3+1;
+                this.callback(this);
+            }
 
-        function get_next_destination(row, col){
-            if(connections===undefined){
+            callback(self){
+                self.ele.style.setProperty('--transparency', self.transparency);
+                self.ele.style.setProperty('--angle', self.angle+'deg');
+                self.ele.style.left=self.left+'px';
+                self.ele.style.top=self.top+'px';
+                self.angle+=Math.random()*60;
+                self.transparency-=0.02;
+                self.left+=self.vx;
+                self.top+=self.vy;
+                self.vy+=movement_acc*50;
+                if(self.transparency>0){
+                    setTimeout(()=>{self.callback(self)}, 10);
+                }else{
+                    self.remove();
+                }
+            }
+            
+            remove(){
+                this.ele.remove();
+            }
+        }
+
+        class SEMovingArrow{
+            constructor(left, top, direction){
+                this.left=left
+                this.top=top
+                this.vx=10*Math.cos(direction/180*Math.PI);
+                this.vy=10*Math.sin(direction/180*Math.PI);
+                this.angle=direction;
+                this.transparency=1.0
+
+                this.ele=document.createElement('div');
+                this.ele.classList.add('SE_MovingArrow');
+                ele_board_container.append(this.ele);
+                this.callback(this);
+            }
+
+            callback(self){
+                self.ele.style.setProperty('--transparency', self.transparency);
+                self.ele.style.setProperty('--angle', self.angle+'deg');
+                self.ele.style.left=self.left+'px';
+                self.ele.style.top=self.top+'px';
+                self.transparency-=0.005;
+                self.left+=self.vx;
+                self.top+=self.vy;
+                if(self.transparency>0){
+                    setTimeout(()=>{self.callback(self)}, 10);
+                }else{
+                    self.remove();
+                }
+            }
+            
+            remove(){
+                this.ele.remove();
+            }
+        }
+
+        const connections = new Connections();
+        const tasksystem = undefined;
+
+        const movement_acc = 1e-3; // 50px per 10ms^2
+
+        function get_next_destination(row, col) {
+            if (connections === undefined) {
                 return undefined;
-            }else{
-                for(let pos of connections.next_place(row, col)){
-                    if(board_contents[pos[0]][pos[1]]===0){
+            } else {
+                for (let pos of connections.next_place(row, col)) {
+                    if (board_contents[pos[0]][pos[1]] === 0) {
                         return pos;
                     }
                 }
@@ -261,88 +379,104 @@
             }
         }
 
-        function acquire_thing(row, col){
-            console.assert(legal_pos([row, col]));
-            return board_things[row][col];
+        function acquire_thing(row, col) {
+            if(legal_pos([row, col])){
+                return board_things[row][col];
+            }
+            return undefined;
         }
 
-        function run_special_effect_horizontal(row, col){
-            console.log(`horizontal special effect at (${row}, ${col})`);
+        function run_special_effect_horizontal(row, col) {
+            // console.log(`horizontal special effect at (${row}, ${col})`);
+            new SEMovingArrow(col*50+30, row*50, 0);
+            new SEMovingArrow(col*50-30, row*50, 180);
         }
 
-        function run_special_effect_vertical(row, col){
-            console.log(`vertical special effect at (${row}, ${col})`);
+        function run_special_effect_vertical(row, col) {
+            // console.log(`vertical special effect at (${row}, ${col})`);
+            new SEMovingArrow(col*50, row*50+30, 90);
+            new SEMovingArrow(col*50, row*50-30, 270);
         }
 
-        function run_special_effect_bingo(row, col){
-            console.log(`bingo special effect at (${row}, ${col})`);
+        function run_special_effect_bingo(row, col) {
+            // console.log(`bingo special effect at (${row}, ${col})`);
+            for(let i=0;i<5;i++){
+                new SETriangle(col*50, row*50);
+            }
         }
 
-        function callback_flowing_vanish(){
+        function callback_flowing_vanish() {
             console.log('flowing ends');
+            if(flowing<0)flowing=0;
         }
 
-        function check_board_bingo(row, col){
+        function check_board_bingo(row, col) {
             const to_be_vanished = [];
+            const [row0, col0] = [row, col]
             // horizontal
-            function _get_special_coord(coords){
-                for(const coord of coords){
-                    if(row===coord[0] && col===coord[1]){
+            function _get_special_coord(coords) {
+                for (const coord of coords) {
+                    if (row0 === coord[0] && col0 === coord[1]) {
+                        return coord.concat();
+                    }
+                }
+                for (const coord of coords) {
+                    if (Math.abs(row0 - coord[0]) + Math.abs(col0 - coord[1]) === 1) {
                         return coord.concat();
                     }
                 }
                 return coords[0];
             }
-            for(let _row=0;_row<rows;_row++){
-                let prevKind=0;
-                const coords=[];
-                for(let _col=0;_col<cols;_col++){
-                    if(board_things[_row][_col]!==undefined && board_things[_row][_col].cata===prevKind){
+            for (let _row = 0; _row < rows; _row++) {
+                let prevKind = 0;
+                const coords = [];
+                for (let _col = 0; _col < cols; _col++) {
+                    if (board_things[_row][_col] !== undefined && board_things[_row][_col].cata === prevKind) {
                         coords.push([_row, _col]);
-                    }else{
-                        if(coords.length>=3){
+                    } else {
+                        if (coords.length >= 3) {
                             to_be_vanished.push({
-                                coords:coords.concat(),
-                                cata:prevKind,
-                                direction:'horizontal',
-                                special_coord:_get_special_coord(coords)
+                                coords: coords.concat(),
+                                cata: prevKind,
+                                direction: 'horizontal',
+                                special_coord: _get_special_coord(coords)
                             });
                         }
                         coords.splice(0);
-                        if(!(board_things[_row][_col]===undefined)){
-                            prevKind=board_things[_row][_col].cata;
+                        if (!(board_things[_row][_col] === undefined)) {
+                            prevKind = board_things[_row][_col].cata;
                             coords.push([_row, _col]);
                         }
 
                     }
                 }
-                if(coords.length>=3){
+                if (coords.length >= 3) {
                     to_be_vanished.push({
-                        coords:coords.concat(),
-                        cata:prevKind,
-                        direction:'horizontal',
-                        special_coord:_get_special_coord(coords)
+                        coords: coords.concat(),
+                        cata: prevKind,
+                        direction: 'horizontal',
+                        special_coord: _get_special_coord(coords)
                     });
                 }
-            } 
-                    
+            }
+
             // vertical
-            function _add_vertical_record(coords, prevKind){
-                if(to_be_vanished.length)debugger;
-                for(let record of to_be_vanished){
-                    if(record.direction==='vertical'){break;}
-                    if(record.cata!==prevKind){continue;}
-                    for(const coord of coords){
-                        for(const coords2 of record.coords){
-                            if(coord[0]===coords2[0] && coord[1]===coords2[1]){
-                                debugger;
-                                for(const coord3 of coords){
-                                    if(!(coord[0]===coord3[0] && coord[1]===coord3[1])){
+            function _add_vertical_record(coords, prevKind) {
+                // if(to_be_vanished.length)debugger;
+                for (let record of to_be_vanished) {
+                    if (record.direction === 'vertical') { break; }
+                    if (record.cata !== prevKind) { continue; }
+                    for (const coord of coords) {
+                        for (const coords2 of record.coords) {
+                            if (coord[0] === coords2[0] && coord[1] === coords2[1]) {
+                                // debugger;
+                                for (const coord3 of coords) {
+                                    if (!(coord[0] === coord3[0] && coord[1] === coord3[1])) {
                                         record.coords.push(coord3);
                                     }
                                 }
-                                record.direction='cross';
-                                record.special_coord=coord.concat();
+                                record.direction = 'cross';
+                                record.special_coord = coord.concat();
                                 return;
                             }
                         }
@@ -350,88 +484,96 @@
                 }
 
                 to_be_vanished.push({
-                    coords:coords.concat(),
-                    cata:prevKind,
-                    direction:'vertical',
-                    special_coord:_get_special_coord(coords)
+                    coords: coords.concat(),
+                    cata: prevKind,
+                    direction: 'vertical',
+                    special_coord: _get_special_coord(coords)
                 })
             }
 
-            for(let _col=0;_col<cols;_col++){
-                let prevKind=0;
-                const coords=[];
-                for(let _row=0;_row<rows;_row++){
-                    if(board_things[_row][_col]!==undefined && board_things[_row][_col].cata===prevKind){
+            for (let _col = 0; _col < cols; _col++) {
+                let prevKind = 0;
+                const coords = [];
+                for (let _row = 0; _row < rows; _row++) {
+                    if (board_things[_row][_col] !== undefined && board_things[_row][_col].cata === prevKind) {
                         coords.push([_row, _col]);
-                    }else{
-                        if(coords.length>=3){
+                    } else {
+                        if (coords.length >= 3) {
                             _add_vertical_record(coords, prevKind);
                         }
                         coords.splice(0);
-                        if(!(board_things[_row][_col]===undefined)){
-                            prevKind=board_things[_row][_col].cata;
+                        if (!(board_things[_row][_col] === undefined)) {
+                            prevKind = board_things[_row][_col].cata;
                             coords.push([_row, _col]);
                         }
                     }
                 }
-                if(coords.length>=3){
+                if (coords.length >= 3) {
                     _add_vertical_record(coords, prevKind);
                 }
-            } 
-            
+            }
+
             // vanish
-            if(to_be_vanished.length===0){
+            if (to_be_vanished.length === 0) {
                 return false;
             }
             // debugger;
 
-            for(const record of to_be_vanished){
-                console.assert(record.cata!==0);
-                if(record.direction==='cross'){
-                    for(const coord of record.coords.sort((a1, b1)=>(100*(a1[0]-b1[0])+(a1[1]-b1[1])))){
-                        const thing=acquire_thing(coord[0], coord[1]);
-                        console.assert(thing!==undefined);
-                        if(!(coord[0]===record.special_coord[0] && coord[1]===record.special_coord[1]))
+            for (const record of to_be_vanished) {
+                console.assert(record.cata !== 0);
+                if (record.direction === 'cross') {
+                    for (const coord of record.coords.sort((a1, b1) => (100 * (a1[0] - b1[0]) + (a1[1] - b1[1])))) {
+                        const thing = acquire_thing(coord[0], coord[1]);
+                        if (thing === undefined) {
+                            continue;
+                        }
+                        if (!(coord[0] === record.special_coord[0] && coord[1] === record.special_coord[1]))
                             thing.callback_bingo();
-                        else{
+                        else {
                             thing.callback_SE_release();
                             thing.setSEHorizontal();
                             thing.setSEVertical();
                         }
-                            
-                    }                    
-                }else if(record.coords.length>=5){
-                    for(const coord of record.coords){
-                        const thing=acquire_thing(coord[0], coord[1]);
-                        console.assert(thing!==undefined);
-                        if(!(coord[0]===record.special_coord[0] && coord[1]===record.special_coord[1]))
+
+                    }
+                } else if (record.coords.length >= 5) {
+                    for (const coord of record.coords) {
+                        const thing = acquire_thing(coord[0], coord[1]);
+                        if (thing === undefined) {
+                            continue;
+                        }
+                        if (!(coord[0] === record.special_coord[0] && coord[1] === record.special_coord[1]))
                             thing.callback_bingo();
-                        else{
+                        else {
                             thing.callback_SE_release();
                             thing.reset_cata(-1);
                         }
                     }
-                }else if(record.coords.length>=4){
-                    for(const coord of record.coords){
-                        const thing=acquire_thing(coord[0], coord[1]);
-                        console.assert(thing!==undefined);
-                        if(!(coord[0]===record.special_coord[0] && coord[1]===record.special_coord[1]))
+                } else if (record.coords.length >= 4) {
+                    for (const coord of record.coords) {
+                        const thing = acquire_thing(coord[0], coord[1]);
+                        if (thing === undefined) {
+                            continue;
+                        }
+                        if (!(coord[0] === record.special_coord[0] && coord[1] === record.special_coord[1]))
                             thing.callback_bingo();
-                        else{
+                        else {
                             thing.callback_SE_release();
-                            if(record.direction==='horizontal'){
+                            if (record.direction === 'horizontal') {
                                 thing.setSEVertical();
-                            }else{
+                            } else {
                                 thing.setSEHorizontal();
                             }
                         }
-                            
+
                     }
-                    
-                }else{
-                    for(const coord of record.coords){
-                        const thing=acquire_thing(coord[0], coord[1]);
-                        console.assert(thing!==undefined);
+
+                } else {
+                    for (const coord of record.coords) {
+                        const thing = acquire_thing(coord[0], coord[1]);
+                        if (thing === undefined) {
+                            continue;
+                        }
                         thing.callback_bingo();
                     }
                 }
@@ -439,48 +581,50 @@
             return true;
         }
 
-        class Thing{
-            constructor(cata, row, col, initrow, initcol){
-                this.cata=+cata;
-                this.row=row;
-                this.col=col;
-                console.assert(board_contents[this.row][this.col]===0);
+        class Thing {
+            constructor(cata, row, col, initrow, initcol) {
+                this.cata = +cata;
+                this.row = row;
+                this.col = col;
+                console.assert(board_contents[this.row][this.col] === 0);
 
-                this.ele=document.createElement('div');
+                this.ele = document.createElement('div');
                 this.ele.classList.add('board_thing');
                 this.ele.classList.add(`cata${this.cata}`);
                 ele_board_container.append(this.ele);
+                const self = this;
+                this.ele.addEventListener('mousedown', () => { self._callback_mousedown() })
+                this.ele.addEventListener('mouseup', () => { self._callback_mouseup() })
 
-                this.movements=[];
-                this.velocity=0.0;
-                this.SE_horizontal=false;
-                this.SE_vertical=false;
-                if(!(initrow===row && initcol===col)){
+                this.movements = [];
+                this.velocity = 0.0;
+                this.SE_horizontal = false;
+                this.SE_vertical = false;
+                if (!(initrow === row && initcol === col)) {
                     this.calculate_movements(initrow, initcol, row, col);
-                }else{
-                    board_things[this.row][this.col]=this;
+                } else {
+                    board_things[this.row][this.col] = this;
                 }
-                board_contents[this.row][this.col]=this.cata;
+                board_contents[this.row][this.col] = this.cata;
                 this.callback_move(this);
-                flowing++;
             }
 
-            reset_cata(new_cata){
+            reset_cata(new_cata) {
                 this.ele.classList.remove(`cata${this.cata}`);
-                this.cata=+new_cata;
+                this.cata = +new_cata;
                 this.ele.classList.add(`cata${this.cata}`);
             }
 
-            _leave(){
-                board_contents[this.row][this.col]=0;
-                board_things[this.row][this.col]=undefined;
-                if(connections!==undefined){
-                    if(connections.has_generator(this.row, this.col)){
+            _leave() {
+                board_contents[this.row][this.col] = 0;
+                board_things[this.row][this.col] = undefined;
+                if (connections !== undefined) {
+                    if (connections.has_generator(this.row, this.col)) {
                         connections.generate(this.row, this.col);
                         return;
                     }
-                    for(let [row,col] of connections.last_place(this.row, this.col)){
-                        if(board_things[row][col]!==undefined){
+                    for (let [row, col] of connections.last_place(this.row, this.col)) {
+                        if (board_things[row][col] !== undefined) {
                             board_things[row][col].goto(this.row, this.col);
                             return;
                         }
@@ -488,131 +632,297 @@
                 }
             }
 
-            goto(newrow, newcol){
-                if(board_contents[newrow][newcol]!==0){
+            goto(newrow, newcol) {
+                if (board_contents[newrow][newcol] !== 0) {
                     throw new Error("Try to move to an occupied cell");
                 }
                 this.calculate_movements(this.row, this.col, newrow, newcol);
                 this._leave();
-                this.row=newrow;
-                this.col=newcol;
-                board_contents[this.row][this.col]=this.cata;
+                this.row = newrow;
+                this.col = newcol;
+                board_contents[this.row][this.col] = this.cata;
                 this.callback_move(this);
+            }
+
+            calculate_movements(fromrow, fromcol, torow, tocol) {
+                let direction = [torow - fromrow, tocol - fromcol];
+                let distance = Math.sqrt(direction[0] ** 2 + direction[1] ** 2);
+                direction[0] /= distance; direction[1] /= distance;
+                let x = 0;
+                while (x < distance) {
+                    this.movements.push([fromrow + direction[0] * x, fromcol + direction[1] * x])
+                    this.velocity += movement_acc;
+                    x += this.velocity;
+                }
+            }
+
+            callback_move(self, callback = (b) => { }) {
                 flowing++;
-            }
-
-            calculate_movements(fromrow, fromcol, torow, tocol){
-                let direction=[torow-fromrow, tocol-fromcol];
-                let distance=Math.sqrt(direction[0]**2+direction[1]**2);
-                direction[0]/=distance;direction[1]/=distance;
-                let x=0;
-                while (x<distance){
-                    this.movements.push([fromrow+direction[0]*x, fromcol+direction[1]*x])
-                    this.velocity+=movement_acc;
-                    x+=this.velocity;
-                }
-            }
-
-            callback_move(self){
-                if(this.ele===undefined){flowing--;if(flowing<=0){callback_flowing_vanish();}return;}
-                if(self.movements.length===0){
-                    self.callback_arrival(self);
+                if (this.ele === undefined) { flowing--; if (flowing <= 0) { callback_flowing_vanish(); } return; }
+                if (self.movements.length === 0) {
+                    self.callback_arrival(self, callback);
                     return;
-                }else{
-                    setTimeout(()=>{self.callback_move(self)}, 10);
+                } else {
+                    setTimeout(() => { flowing--;self.callback_move(self, callback) }, 10);
                 }
-                let [row, col]=self.movements.shift();
-                let left=Math.round(col*50)+'px';
-                let top=Math.round(row*50)+'px';
-                self.ele.style.left=left;
-                self.ele.style.top=top;
+                let [row, col] = self.movements.shift();
+                let left = Math.round(col * 50) + 'px';
+                let top = Math.round(row * 50) + 'px';
+                self.ele.style.left = left;
+                self.ele.style.top = top;
             }
 
-            callback_arrival(){
-                if(this.ele===undefined){return;}
+            callback_arrival(self, callback = (b) => { }) {
+                if (this.ele === undefined) { return; }
                 this.movements.splice(0);
-                this.ele.style.left=Math.round(this.col*50)+'px';
-                this.ele.style.top=Math.round(this.row*50)+'px';
+                this.ele.style.left = Math.round(this.col * 50) + 'px';
+                this.ele.style.top = Math.round(this.row * 50) + 'px';
                 flowing--;
-                if(flowing<=0){callback_flowing_vanish();}
+                if (flowing <= 0) { callback_flowing_vanish(); }
 
-                let next_dest=get_next_destination(this.row, this.col);
-                if(next_dest===undefined){
-                    this.velocity=0.0;
-                    console.assert(board_things[this.row][this.col]===undefined||board_things[this.row][this.col]===this);
-                    board_things[this.row][this.col]=this;
-                    board_contents[this.row][this.col]=this.cata;
-                    setTimeout(check_board_bingo(this.row, this.col), 50);
-                }else{
-                    let [row,col]=next_dest;
+                let next_dest = get_next_destination(this.row, this.col);
+                if (next_dest === undefined) {
+                    this.velocity = 0.0;
+                    if (!(board_things[this.row][this.col] === undefined || board_things[this.row][this.col] === this)) {
+                        this.ele.remove();
+                        this.ele = undefined;
+                        console.log("soft error: placing conflict")
+                        return;
+                    };
+                    board_things[this.row][this.col] = this;
+                    board_contents[this.row][this.col] = this.cata;
+                    if (callback !== undefined)
+                        setTimeout(callback(check_board_bingo(this.row, this.col)), 50);
+                } else {
+                    let [row, col] = next_dest;
                     this.goto(row, col);
                 }
             }
 
-            callback_bingo(){
-                if(this.movements.length!==0){
-                    // this.callback_arrival();
-                    throw new Error("try to bingo moving things");
+            callback_bingo() {
+                if (this.movements.length !== 0) {
+                    // throw new Error("try to bingo moving things");
+                    this.movements.splice(0);
                 }
+                board_things[this.row][this.col] = undefined;
                 run_special_effect_bingo(this.row, this.col);
                 this.callback_SE_release();
-                this.ele.remove();
-                this.ele=undefined;
-                this._leave();
+                setTimeout(() => {
+                    if (this.ele !== undefined) {
+                        this.ele.remove();
+                    }
+                    this.ele = undefined;
+                    this._leave();
+                }, 10);
+
                 return;
             }
 
-            callback_SE_release(){
-                if(this.SE_horizontal){
+            callback_SE_release() {
+                if (this.cata === -1) {
+                    let cata2 = thing_cata_enabled[Math.floor(Math.random() * thing_cata_enabled.length)];
+                    if(this.target_color!==undefined){
+                        cata2=this.target_color;
+                    }
+                    for (const [row2, col2] of all_places()) {
+                        const thing = acquire_thing(row2, col2);
+                        if (thing !== undefined && thing.cata === cata2) {
+                            thing.callback_bingo();
+                        }
+                    }
+                }
+                if (this.SE_horizontal) {
                     run_special_effect_horizontal(this.row, this.col);
-                    this.SE_horizontal=false;
+                    this.SE_horizontal = false;
                     this.ele.classList.remove('SE_horizontal');
-                    for(let col=0;col<cols;col++){
-                        let thing=acquire_thing(this.row, col);
-                        if(thing!==undefined && thing!==this){
+                    for (let col = 0; col < cols; col++) {
+                        let thing = acquire_thing(this.row, col);
+                        if (thing !== undefined && thing !== this) {
                             thing.callback_bingo();
                         }
                     }
                 }
-                if(this.SE_vertical){
+                if (this.SE_vertical) {
                     run_special_effect_vertical(this.row, this.col);
-                    this.SE_vertical=false;
+                    this.SE_vertical = false;
                     this.ele.classList.remove('SE_vertical');
-                    for(let row=0;row<rows;row++){
-                        let thing=acquire_thing(row, this.col);
-                        if(thing!==undefined && thing!==this){
+                    for (let row = 0; row < rows; row++) {
+                        let thing = acquire_thing(row, this.col);
+                        if (thing !== undefined && thing !== this) {
                             thing.callback_bingo();
                         }
                     }
                 }
-                if(tasksystem!==undefined){
+                if (tasksystem !== undefined) {
                     tasksystem.addCounter(this.cata, this.SE_horizontal, this.SE_vertical);
                 }
             }
 
-            setSEHorizontal(){
-                this.SE_horizontal=true;
+            setSEHorizontal() {
+                this.SE_horizontal = true;
                 this.ele.classList.add('SE_horizontal');
             }
 
-            setSEVertical(){
-                this.SE_vertical=true;
+            setSEVertical() {
+                this.SE_vertical = true;
                 this.ele.classList.add('SE_vertical');
             }
-        }
 
-        // let a=new Thing(3, 2, 2, 1, 2);
-        // a.setSEHorizontal();
-        // a.setSEVertical();
-        (()=>{
-            for(const pos of all_places()){
-                const [row, col]=pos;
-                if(connections.has_generator(row, col)){
+            swap(other) {
+                const [newrow, newcol] = [other.row, other.col];
+                this.calculate_movements(this.row, this.col, newrow, newcol);
+                other.calculate_movements(newrow, newcol, this.row, this.col);
+                board_contents[this.row][this.col] = other.cata;
+                board_things[this.row][this.col] = other;
+                board_contents[newrow][newcol] = this.cata;
+                board_things[newrow][newcol] = this;
+                other.row = this.row;
+                other.col = this.col;
+                this.row = newrow;
+                this.col = newcol;
+                const self = this;
+
+                let callback1 = () => { };
+                let callback2 = () => { };
+                if (self.cata === -1) {
+                    if (other.cata === -1) {
+                        callback1 = () => {
+                            other.callback_bingo();
+                            self.callback_bingo();
+                            for (const [row2, col2] of all_places()) {
+                                const thing = acquire_thing(row2, col2);
+                                if (thing !== undefined) {
+                                    thing.callback_bingo();
+                                }
+                            }
+                        }
+                        
+                    } else {
+                        const cata2 = other.cata;
+                        callback2 = () => {
+                            for (const [row2, col2] of all_places()) {
+                                const thing = acquire_thing(row2, col2);
+                                if (thing !== undefined && thing.cata === cata2) {
+                                    if (other.SE_horizontal && other.SE_vertical) {
+                                        thing.setSEHorizontal();
+                                        thing.setSEVertical();
+                                    } else if (other.SE_horizontal || other.SE_vertical) {
+                                        if (Math.random() < 0.5) {
+                                            thing.setSEHorizontal();
+                                        } else {
+                                            thing.setSEVertical();
+                                        }
+                                    }
+                                }
+                            }
+                            self.target_color=cata2;
+                            self.callback_bingo();
+
+                        }
+                        
+                    }
+
+                } else if (other.cata === -1) {
+                    const cata2 = self.cata;
+                    callback1 = () => {
+                        for (const [row2, col2] of all_places()) {
+                            const thing = acquire_thing(row2, col2);
+                            if (thing !== undefined && thing.cata === cata2) {
+                                if (self.SE_horizontal && self.SE_vertical) {
+                                    thing.setSEHorizontal();
+                                    thing.setSEVertical();
+                                } else if (self.SE_horizontal || self.SE_vertical) {
+                                    if (Math.random() < 0.5) {
+                                        thing.setSEHorizontal();
+                                    } else {
+                                        thing.setSEVertical();
+                                    }
+                                }
+                            }
+                        }
+                        other.target_color=cata2;
+                        other.callback_bingo();
+                    }
+                    
+                } else if ((self.SE_horizontal || self.SE_vertical) && (other.SE_horizontal || other.SE_vertical)) {
+                    callback1 = () => {
+                        self.callback_bingo();
+                    }
+                    callback2 = () => {
+                        other.callback_bingo();
+                    }
+                }
+
+                this.callback_move(this, callback1);
+                other.callback_move(other, callback2);
+
+                setTimeout(() => {
+                    if (flowing>0) {
+                        console.log("still flowing");
+                        if (tasksystem !== undefined) {
+                            tasksystem.addStep();
+                        }
+                        return;
+                    }
+                    const [newrow, newcol] = [other.row, other.col];
+                    self.calculate_movements(self.row, self.col, newrow, newcol);
+                    other.calculate_movements(newrow, newcol, self.row, self.col);
+                    board_contents[self.row][self.col] = other.cata;
+                    board_things[self.row][self.col] = other;
+                    board_contents[newrow][newcol] = self.cata;
+                    board_things[newrow][newcol] = self;
+                    other.row = self.row;
+                    other.col = self.col;
+                    self.row = newrow;
+                    self.col = newcol;
+                    self.callback_move(self);
+                    other.callback_move(other);
+                }, Math.ceil(Math.sqrt(2 / movement_acc)) * 10 + 100);
+                console.log('t', Math.ceil(Math.sqrt(2 / movement_acc)) * 10 + 100);
+            }
+
+            _callback_mousedown() {
+                dragStart.row = this.row;
+                dragStart.col = this.col;
+            }
+
+            _callback_mouseup() {
+                const [r, c] = [this.row, this.col];
+                const [r0, c0] = [dragStart.row, dragStart.col];
+                dragStart.row = NaN;
+                dragStart.col = NaN;
+                console.log(r0, c0, r, c);
+                if (!legal_pos([r0, c0])) { return; }
+                if (!legal_pos([r, c])) { return; }
+                if (flowing>0) { return; }
+                if (Math.abs(r - r0) + Math.abs(c - c0) === 1) {
+                    const thing = board_things[r0][c0];
+                    const thing2 = board_things[r][c];
+                    console.log(thing, thing2);
+                    if (thing !== undefined && thing2 !== undefined) {
+                        thing.swap(thing2);
+                        console.log(thing, thing2);
+                    }
+                }
+            }
+        };
+
+        // swap
+        const dragStart = {
+            row: NaN,
+            col: NaN
+        };
+
+        ; (() => {
+            for (const pos of all_places()) {
+                const [row, col] = pos;
+                if (connections.has_generator(row, col)) {
                     connections.generate(row, col);
                 }
             }
         })()
-        
+
     </script>
 </body>
+
 </html>

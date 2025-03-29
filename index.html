@@ -16,7 +16,6 @@
             -webkit-user-select: none;
             -moz-user-select: none;
             user-select: none;
-            /* -webkit-user-drag: none; */
         }
 
         body {
@@ -62,7 +61,6 @@
             justify-content: center;
             flex-direction: column;
             border-radius: 5px;
-            /* background-color: #666; */
             background-color: transparent;
             width: calc(13*var(--cell-size));
             height: calc(13*var(--cell-size));
@@ -255,6 +253,9 @@
         .task_tick.done::before{
             content: '✅'; 
         }
+        .task_tick.task_step.ending_icon::before{
+            content: '✅';
+        }
         .task_tick.done.task_step::before{
             content: '❌'; 
         }
@@ -276,6 +277,10 @@
             border: 2px #ddd solid;
             background-color: rgba(200, 200, 200, 0.7);
             border-radius: 5px;
+        }
+
+        .subpage *{
+            background-color: transparent;
         }
 
         .hidden {
@@ -357,13 +362,50 @@
         }
         .button.disabled {
            background-color: #888;
+           cursor: not-allowed;
+        }
+
+        .ending_icon,.ending_icon::before{
+            width: 30px;
+            height: 30px;
+        }
+
+        .ending_icon::before,.ending_element * {
+            font-size: 24px;
+            line-height: 30px;
+            background-size: 75%;
+            margin: 0 5px;
+        }
+
+        .ending_element.stars{
+            display: block;
+            font-size: 60px;
+            line-height: 60px;
+            text-align: center;
+        }
+
+        .ending_element.stars::before{
+            content: '✰✰✰';
+        }
+        .ending_element.stars.phase1::before{
+            content: '⭐✰✰';
+        }
+        .ending_element.stars.phase2::before{
+            content: '⭐⭐✰';
+        }
+        .ending_element.stars.phase3::before{
+            content: '⭐⭐⭐';
         }
     </style>
 </head>
 
 <body>
     <div class="board_container"></div>
-    <div class="task_panel_container"></div>
+    <div class="side_panel" style="background-color: transparent;">
+        <div class="task_panel_container"></div>
+        <div class="button" id="restart_button">Restart</div>
+    </div>
+    
     <div class="mask"></div>
     <div class="subpage setting_page">
         <div class="caption">Settings</div>
@@ -371,10 +413,10 @@
         <div class="button start_game_button">Start</div>
     </div>
     <div class="subpage ending_page">
-        <div class="caption">Game Over</div>
-        <div class="stars"></div>
-        <div class="comments">This game page is still under construction. I'm waiting for you to contribute! </div>
-        <div class="details"></div>
+        <div class="ending_element caption" id="ending_caption">Game Over</div>
+        <div class="ending_element stars" id="ending_stars"></div>
+        <div class="ending_element tasks" id="ending_tasks"></div>
+        <div class="ending_element comments">This game page is still under construction. <br>I'm waiting for you to contribute! </div>
         <div class="button settings_button">Continue</div>
     </div>
     <script>
@@ -392,11 +434,17 @@
         let movement_acc = 1e-3; // acceleration of movement, 50px per 10ms^2
         let movement_v0= 5e-2; // initial velocity of movement, 50px per 10ms
         let layout_number=5; // type of layout. 1: normal; 2: convection; 3: circling; 4: core; 5: chaos
-        const swap_time_estimate=(()=>{
+        let swap_time_estimate=1000; // estimated time of single_cell movement, in milliseconds
+        let _swap_cooling_down=0;
+        let _step_overflow=false;
+        let local_storage_enabled=false;
+        const refresh_swap_time_estimate=(()=>{
             // vt+1/2 at^2==1
             const v=movement_v0; const a=movement_acc;
-            return (-v+Math.sqrt(v*v+2*a))/a*10;
-        })() // estimated time of single_cell movement, in milliseconds
+            swap_time_estimate=Math.ceil((-v+Math.sqrt(v*v+2*a))/a)*10+10;
+            return swap_time_estimate;
+        }) 
+        refresh_swap_time_estimate(); 
 
         let gameOn=0;
         let total_steps=15;
@@ -413,7 +461,7 @@
                 case 4:
                     difficulty_coeff*=1.2;
             }
-            difficulty_coeff*=generator_corr_length;
+            difficulty_coeff*=1+0.1*generator_corr_length;
             difficulty_coeff*=(total_steps+5)/20;
             if(layout_number===2){difficulty_coeff*=4;}
             return difficulty_coeff;
@@ -632,6 +680,10 @@
         const ele_start_game_button=document.querySelector('.start_game_button');
         const ele_settings_button=document.querySelector('.settings_button');
         const ele_setting_silders=document.querySelector('.setting_sliders');
+        const ele_ending_caption=document.querySelector('#ending_caption');
+        const ele_ending_tasks=document.querySelector('#ending_tasks');
+        const ele_ending_stars=document.querySelector('#ending_stars');
+        const ele_restart_button=document.querySelector('#restart_button');
         const arr_ele_board_row = [];
         const arr_ele_board_cell = [];
         for (let row = 0; row < rows; row++) {
@@ -670,7 +722,14 @@
         const setting_layout_number=new Slider(ele_setting_silders, (x)=>{
             const value=Math.floor(x*4.999)+1;
             layout_number=value;
-            return value;
+            switch(value){
+                case 1:return 'Normal';
+                case 2:return 'Convection';
+                case 3:return 'Circling';
+                case 4:return 'Core';
+                case 5:return 'Random';
+                default: return 'Unknown';
+            }
         }, 0, 'LayoutType');
         const setting_total_steps=new Slider(ele_setting_silders, (x)=>{
             const value=Math.floor(x*30)+5;
@@ -686,11 +745,13 @@
         const setting_movement_acc=new Slider(ele_setting_silders, (x)=>{
             const value=[1e-4, 2e-4, 3.5e-4, 5e-4, 1e-3, 1.5e-3, 2e-3, 5e-3][Math.min(Math.floor(x*8),7)];
             movement_acc=value;
+            refresh_swap_time_estimate();
             return value.toExponential(1); 
         }, 0.55, 'Acceleration');
         const setting_movement_v0=new Slider(ele_setting_silders, (x)=>{
             const value=[0, 5e-4, 1e-3, 1e-2, 5e-2, 1e-1, 2e-1][Math.min(Math.floor(x*7),6)];
             movement_v0=value;
+            refresh_swap_time_estimate();
             return value.toExponential(1);
         }, 0.64, 'InitVelocity');
         
@@ -730,7 +791,7 @@
                 }
                 flowing=0;
             }
-        }, 100); // check periodically
+        }, 20); // check periodically
 
         // mark the startpoint of dragging to swap using mouse. Used only in 'swap' function in class Things. 
         const dragStart = {
@@ -1059,6 +1120,7 @@
                 this.score=0;
                 for(const taskObj of this.tasks){
                     taskObj.ele.remove();
+                    taskObj.ending_ele.remove();
                 }
                 this.tasks.splice(0);
                 this.tasks.push(new TaskObj('step', NaN, false));
@@ -1096,6 +1158,7 @@
                 if(accomplished){
                     callbacks_flowing_vanish.push(()=>{
                         tasksystem._addRecord(true, 3);
+                        this._set_ending_stars(3, true);                        
                         task_end(true);
                     });
                     return;
@@ -1118,9 +1181,31 @@
                     }
                     callbacks_flowing_vanish.push(()=>{
                         tasksystem._addRecord(accomplished, optionalAccomplishedCount);
+                        this._set_ending_stars(optionalAccomplishedCount, accomplished);
                         task_end(accomplished);
                     })
                     return;
+                }
+            }
+
+            force_end(){
+                let accomplished=true;
+                for(let i=1;i<this.tasks.length-3;i++){
+                    if(!this.tasks[i].accomplished()){
+                        accomplished=false;
+                        break;
+                    }
+                }
+                {
+                    let optionalAccomplishedCount=0;
+                    for(let i=this.tasks.length-3;i<this.tasks.length;i++){
+                        if(this.tasks[i].accomplished()){
+                            optionalAccomplishedCount++;
+                        }
+                    }
+                    tasksystem._addRecord(accomplished, optionalAccomplishedCount);
+                    this._set_ending_stars(optionalAccomplishedCount, accomplished);
+                    task_end(accomplished);
                 }
             }
 
@@ -1132,7 +1217,10 @@
                     'seCollect':this.seCollect,
                     'score':this.score,
                     'accomplished':accomplished,
-                    'optionalAccomplishedCount':optionalAccomplishedCount
+                    'optionalAccomplishedCount':optionalAccomplishedCount,
+                    'layoutType':layout_number,
+                    'corrLength':generator_corr_length, 
+                    'fruitCataNumber':thing_cata_enabled.length
                 }
                 gamestats.addRecord(obj);
                 console.log('call add record', JSON.stringify(obj));
@@ -1162,11 +1250,45 @@
                 this.combo=0;
                 this._refresh();
             }
+        
+            _set_ending_stars(count, winning){
+                if(!winning){count=0;}
+                switch(count){
+                    case 3:
+                        ele_ending_stars.classList.remove('phase1');
+                        ele_ending_stars.classList.remove('phase2');
+                        ele_ending_stars.classList.add('phase3');
+                        ele_ending_caption.innerText='Perfect!';
+                        break;
+                    case 2:
+                        ele_ending_stars.classList.remove('phase1');
+                        ele_ending_stars.classList.add('phase2');
+                        ele_ending_stars.classList.remove('phase3');
+                        ele_ending_caption.innerText='Well Done!';
+                        break;
+                    case 1:
+                        ele_ending_stars.classList.add('phase1');
+                        ele_ending_stars.classList.remove('phase2');
+                        ele_ending_stars.classList.remove('phase3');
+                        ele_ending_caption.innerText='Good!';
+                        break;
+                    default:
+                        ele_ending_stars.classList.remove('phase1');
+                        ele_ending_stars.classList.remove('phase2');
+                        ele_ending_stars.classList.remove('phase3');
+                        ele_ending_caption.innerText='A Narrow Victory!';
+                        break;
+                }
+                if(!winning){ele_ending_caption.innerText='Good Luck Next Time!'}
+                return;                        
+            }
+        
         }
 
         // a single task with its elements
         class TaskObj{
             constructor(taskType, taskVal, optionalFlag){
+                // task panel elements
                 this.ele=document.createElement('div');
                 this.ele.classList.add('task_container');
                 ele_task_panel_container.append(this.ele);
@@ -1200,8 +1322,47 @@
                 this.ele_required.innerHTML='00';
                 this.ele_text.append(this.ele_required);
 
+                // ending panel elements
+                this.ending_ele=document.createElement('div');
+                this.ending_ele.classList.add('task_container');
+                this.ending_ele.classList.add('ending_element');
+                ele_ending_tasks.append(this.ending_ele);
+
+                this.ending_ele_flag=document.createElement('div');
+                this.ending_ele_flag.classList.add('ending_icon');
+                if(optionalFlag){
+                    this.ending_ele_flag.classList.add('task_star');
+                }else{
+                    this.ending_ele_flag.classList.add('task_tick');
+                }
+                
+                this.ending_ele.append(this.ending_ele_flag);
+
+                this.ending_ele_icon=document.createElement('div');
+                this.ending_ele_icon.classList.add('task_icon');
+                this.ending_ele_icon.classList.add('ending_icon');
+                this.ending_ele.append(this.ending_ele_icon);
+
+                this.ending_ele_text=document.createElement('div');
+                this.ending_ele_text.classList.add('task_text');
+                this.ending_ele.append(this.ending_ele_text);
+
+                this.ending_ele_current=document.createElement('span');
+                this.ending_ele_current.innerHTML='00';
+                this.ending_ele_text.append(this.ending_ele_current);
+
+                this.ending_ele_slash=document.createElement('span');
+                this.ending_ele_slash.innerHTML='/';
+                this.ending_ele_text.append(this.ending_ele_slash);
+
+                this.ending_ele_required=document.createElement('span');
+                this.ending_ele_required.innerHTML='00';
+                this.ending_ele_text.append(this.ending_ele_required);
+
+
                 this.current_count=0;
                 this.required_count=0;
+                this.taskType=taskType;
 
                 this.color0=[220, 30, 30];
                 this.color1=[255, 201, 30];
@@ -1211,9 +1372,12 @@
                     switch(taskType){
                         case 'step':
                             this.acquire_count=()=>{this.current_count=tasksystem.stepConsumed};
+                            _step_overflow=false;
                             this.required_count=+total_steps;
                             this.ele_icon.innerText=obtain_clock_emoji(); 
+                            this.ending_ele_icon.innerText=obtain_clock_emoji();
                             this.ele_flag.classList.add('task_step');
+                            this.ending_ele_flag.classList.add('task_step');
                             [this.color0, this.color2]=[this.color2, this.color0];
                             break;
                         case 'cata50':
@@ -1222,6 +1386,7 @@
                             this.acquire_count=()=>{this.current_count=tasksystem.cataCollect[this.cata]};
                             this.required_count=50;
                             this.ele_icon.classList.add(`cata${this.cata}`);
+                            this.ending_ele_icon.classList.add(`cata${this.cata}`);
                             break;
                         case 'cata100':
                             this.cata=taskVal;
@@ -1229,6 +1394,7 @@
                             this.acquire_count=()=>{this.current_count=tasksystem.cataCollect[this.cata]};
                             this.required_count=100;
                             this.ele_icon.classList.add(`cata${this.cata}`);
+                            this.ending_ele_icon.classList.add(`cata${this.cata}`);
                             break;
                         default: 
                             throw new Error('unknown task type');
@@ -1241,25 +1407,31 @@
                             this.acquire_count=()=>{this.current_count=tasksystem.cataCollect[this.cata]};
                             this.required_count=200;
                             this.ele_icon.classList.add(`cata${this.cata}`);
+                            this.ending_ele_icon.classList.add(`cata${this.cata}`);
                             break;
                         case 'se':
                             if(taskVal===0){
                                 this.acquire_count=()=>{this.current_count=tasksystem.seCollect['H']};
                                 this.required_count=10;
                                 this.ele_icon.classList.add(`SE_horizontal`);
+                                this.ending_ele_icon.classList.add(`SE_horizontal`);
                             }else if(taskVal===1){
                                 this.acquire_count=()=>{this.current_count=tasksystem.seCollect['V']};
                                 this.required_count=10;
                                 this.ele_icon.classList.add(`SE_vertical`);
+                                this.ending_ele_icon.classList.add(`SE_vertical`);
                             }else if(taskVal===2){
                                 this.acquire_count=()=>{this.current_count=tasksystem.seCollect['C']};
                                 this.required_count=5;
                                 this.ele_icon.classList.add(`SE_horizontal`);
                                 this.ele_icon.classList.add(`SE_vertical`);
+                                this.ending_ele_icon.classList.add(`SE_horizontal`);
+                                this.ending_ele_icon.classList.add(`SE_vertical`);
                             }else{
                                 this.acquire_count=()=>{this.current_count=tasksystem.cataCollect[-1]};
                                 this.required_count=3;
                                 this.ele_icon.classList.add(`cata-1`);
+                                this.ending_ele_icon.classList.add(`cata-1`);
                             }
                             
                             break;
@@ -1267,6 +1439,7 @@
                             this.acquire_count=()=>{this.current_count=tasksystem.score};
                             this.required_count=300000;
                             this.ele_icon.innerText='💯'; 
+                            this.ending_ele_icon.innerText='💯';
                             this.ele_text.style.fontSize='calc(var(--task-system-size)*0.4)';
                             break;
                         default: 
@@ -1281,6 +1454,11 @@
 
             accomplished(){
                 this.acquire_count();
+                if(this.taskType==='step'){
+                    if(this.current_count>=this.required_count){
+                        _step_overflow=true;
+                    }
+                }
                 return this.current_count>=this.required_count;
             }
 
@@ -1292,18 +1470,44 @@
             _refresh(){
                 this.ele_current.innerHTML=this.current_count;
                 this.ele_required.innerHTML=this.required_count;
+                this.ending_ele_current.innerHTML=this.current_count;
+                this.ending_ele_required.innerHTML=this.required_count;
                 let beta=this.current_count/this.required_count;
                 let color=[];
                 if(beta>=1){
                     color=this.color2;
                     this.ele_flag.classList.add('done');
+                    this.ending_ele_flag.classList.add('done');
                 }else{
                     for(let i=0;i<3;i++){
                         color.push(this.color0[i]*(1-beta)+this.color1[i]*beta)
                     }
                     this.ele_flag.classList.remove('done');
+                    this.ending_ele_flag.classList.remove('done');
                 }
                 this.ele_current.style.color=`rgb(${color[0]},${color[1]},${color[2]})`;
+                {
+                    const color0=this.color0;
+                    const color1=this.color1;
+                    const color2=this.color2;
+                    if(this.taskType==='step'){
+                        if(beta<1){
+                            this.ending_ele_current.style.color=`rgb(${color0[0]},${color0[1]},${color0[2]})`;
+                        }else if(Math.abs(beta-1)<=1e-7){
+                            this.ending_ele_current.style.color=`rgb(${color1[0]},${color1[1]},${color1[2]})`;
+                            this.ending_ele_flag.classList.remove('done');
+                        }else{
+                            this.ending_ele_current.style.color=`rgb(${color2[0]},${color2[1]},${color2[2]})`;
+                        }
+                    }else{
+                        if(beta>=1){
+                            this.ending_ele_current.style.color=`rgb(${color2[0]},${color2[1]},${color2[2]})`;
+                        }else{
+                            this.ending_ele_current.style.color=`rgb(${color0[0]},${color0[1]},${color0[2]})`;
+                        }
+                    }
+                }
+                return;
             }
         }
 
@@ -1311,11 +1515,29 @@
         // storage and restoring of gaming data, to be modified
         class GamingStats{
             constructor(){
-
+                this.records=[];
+                if(local_storage_enabled){
+                    const old_records=JSON.parse(localStorage.getItem('gameRecords'));
+                    if(old_records===undefined||old_records===null){
+                        localStorage.setItem('gameRecords', '[]');
+                    }
+                    try{
+                        for(const rec of old_records){
+                            this.records.push(rec);
+                        }
+                    }catch{
+                        localStorage.setItem('gameRecords', '[]');
+                    };
+                }
+                
             }
 
             addRecord(obj){
                 this.showRecord(obj);
+                this.records.push(obj);
+                if(local_storage_enabled){
+                    localStorage.setItem('gameRecords', JSON.stringify(this.records));
+                }
             }
 
             showRecord(obj){
@@ -1340,6 +1562,7 @@
         const gamestats=new GamingStats();
 
         function game_ready(){
+            if(gameOn===1){tasksystem.force_end();}
             gameOn=0;
             for(const slider of sliders){slider.enable();}
             for(const ele of [ele_mask, ele_setting_page]){
@@ -1347,6 +1570,8 @@
             }
             ele_ending_page.classList.add('hidden');
             ele_start_game_button.classList.remove('disabled');
+            ele_settings_button.classList.add('disabled');
+            flowing=0;
         }
 
         // called when game starts
@@ -1357,6 +1582,7 @@
                 ele.classList.add('hidden');
             }
             ele_start_game_button.classList.add('disabled');
+            ele_settings_button.classList.add('disabled');
             board_reset();
             connections.init();
             tasksystem._reset();
@@ -1374,12 +1600,14 @@
 
         // called when a task ends
         function task_end(accomplish){
+            if(gameOn!==1){return;}
             gameOn=2;
             for(const ele of [ele_mask, ele_ending_page]){
                 ele.classList.remove('hidden');
             }
             ele_setting_page.classList.add('hidden');
             ele_start_game_button.classList.add('disabled');
+            ele_settings_button.classList.remove('disabled');
             if(accomplish){
                 console.log('task end accomplished')
             }else{
@@ -1718,9 +1946,18 @@
                      flowing--;
                      return; 
                 }
-                if (self.movements.length === 0) {
-                    self.callback_arrival(self, callback);
+                if(gameOn===0){
                     flowing--;
+                    // force removal
+                    this.ele.remove();
+                    board_contents[this.row][this.col]=0;
+                    if(board_things[this.row][this.col]===this){
+                        board_things[this.row][this.col]=undefined;
+                    }
+                    return;
+                }
+                if (self.movements.length === 0) {
+                    self._callback_arrival(self, callback);
                     return;
                 } else {
                     setTimeout(() => { flowing--;self.callback_move(self, callback) }, 10);
@@ -1733,7 +1970,8 @@
                 return;
             }
 
-            callback_arrival(self, callback = (b) => { }) {
+            _callback_arrival(self, callback = (b) => { }) {
+                flowing--;
                 if (this.ele === undefined) { return; }
                 this.movements.splice(0);
                 this.ele.style.left = Math.round(this.col * cellWidth) + 'px';
@@ -1832,6 +2070,9 @@
             }
 
             swap(other) {
+                if(_swap_cooling_down>0){console.log("swap cooling down");return;}
+                if(_step_overflow){console.log("step overflow");return;}
+                else{_swap_cooling_down=2;}
                 const [newrow, newcol] = [other.row, other.col];
                 this.calculate_movements(this.row, this.col, newrow, newcol);
                 other.calculate_movements(newrow, newcol, this.row, this.col);
@@ -1924,8 +2165,10 @@
                         if (tasksystem !== undefined) {
                             tasksystem.addStep();
                         }
+                        _swap_cooling_down=0;
                         return;
                     }
+                    _swap_cooling_down=2;
                     console.log('inactive flowing');
                     const [newrow, newcol] = [other.row, other.col];
                     self.calculate_movements(self.row, self.col, newrow, newcol);
@@ -1938,8 +2181,8 @@
                     other.col = self.col;
                     self.row = newrow;
                     self.col = newcol;
-                    self.callback_move(self);
-                    other.callback_move(other);
+                    self.callback_move(self, ()=>{_swap_cooling_down--;});
+                    other.callback_move(other, ()=>{_swap_cooling_down--;});
                 }, swap_time_estimate + 100);
                 console.log('t', swap_time_estimate + 100);
             }
@@ -1960,6 +2203,7 @@
                 if (!legal_pos([r0, c0])) { return; }
                 if (!legal_pos([r, c])) { return; }
                 if (flowing>0) { return; }
+                if(gameOn!==1){return;}
                 if (Math.abs(r - r0) + Math.abs(c - c0) === 1) {
                     const thing = board_things[r0][c0];
                     const thing2 = board_things[r][c];
@@ -1993,6 +2237,7 @@
 
             _callback_touchmove(direction){
                 if(flowing>0){return;}
+                if(gameOn!==1){return;}
                 let thing2;
                 if(direction[0]>0.9){
                     thing2=board_things[this.row][this.col+1];
@@ -2015,7 +2260,7 @@
         ele_start_game_button.addEventListener('touchend', game_start);
         ele_settings_button.addEventListener('mouseup', game_ready);
         ele_settings_button.addEventListener('touchend', game_ready);
-
+        ele_restart_button.addEventListener('mouseup', game_ready);
         game_ready();
     </script>
 </body>

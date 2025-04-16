@@ -416,7 +416,7 @@
         <div class="ending_element caption" id="ending_caption">Game Over</div>
         <div class="ending_element stars" id="ending_stars"></div>
         <div class="ending_element tasks" id="ending_tasks"></div>
-        <div class="ending_element comments">This game page is still under construction. <br>I'm waiting for you to contribute! </div>
+        <div class="ending_element comments">I'm waiting for you to contribute! </div>
         <div class="button settings_button">Continue</div>
     </div>
     <script>
@@ -1405,7 +1405,7 @@
                             this.cata=taskVal;
                             console.assert(this.cata!==undefined);
                             this.acquire_count=()=>{this.current_count=tasksystem.cataCollect[this.cata]};
-                            this.required_count=200;
+                            this.required_count=320;
                             this.ele_icon.classList.add(`cata${this.cata}`);
                             this.ending_ele_icon.classList.add(`cata${this.cata}`);
                             break;
@@ -1429,7 +1429,7 @@
                                 this.ending_ele_icon.classList.add(`SE_vertical`);
                             }else{
                                 this.acquire_count=()=>{this.current_count=tasksystem.cataCollect[-1]};
-                                this.required_count=3;
+                                this.required_count=2;
                                 this.ele_icon.classList.add(`cata-1`);
                                 this.ending_ele_icon.classList.add(`cata-1`);
                             }
@@ -1437,7 +1437,7 @@
                             break;
                         case 'score':
                             this.acquire_count=()=>{this.current_count=tasksystem.score};
-                            this.required_count=300000;
+                            this.required_count=500000;
                             this.ele_icon.innerText='💯'; 
                             this.ending_ele_icon.innerText='💯';
                             this.ele_text.style.fontSize='calc(var(--task-system-size)*0.4)';
@@ -2261,6 +2261,7 @@
         ele_settings_button.addEventListener('mouseup', game_ready);
         ele_settings_button.addEventListener('touchend', game_ready);
         ele_restart_button.addEventListener('mouseup', game_ready);
+        ele_restart_button.addEventListener('touchend', game_ready);
         game_ready();
     </script>
 </body>
